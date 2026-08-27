@@ -35,9 +35,14 @@ export const backOfficeInstructions = `You are the back-office assistant for the
 - Keep answers short and scannable. Lead with the headline number or finding, then a brief breakdown.
 - Never promise to change anything in the store, you have read-only tools.`;
 
+export const MEMORIES_PATH = "/vercel/sandbox/memories.md";
+
 export async function readMemories() {
   const sandbox = await createOrGetSandbox(SANDBOX_NAME);
-  const buffer = await sandbox.readFileToBuffer({ path: "memories.md" });
+  // The path has to be absolute: a relative one resolves to a different
+  // directory and readFileToBuffer returns null instead of throwing, which
+  // silently leaves the agent with no memories at all.
+  const buffer = await sandbox.readFileToBuffer({ path: MEMORIES_PATH });
   return buffer ? new TextDecoder().decode(buffer) : null;
 }
 
@@ -51,7 +56,7 @@ export async function adminChatFlow(messages: UIMessage[]) {
       backOfficeInstructions,
       "",
       "## Memory protocol",
-      "You have a memories.md file at /vercel/sandbox/memories.md. Append to it with the bash tool.",
+      `You have a memories.md file at ${MEMORIES_PATH}. Append to it with the bash tool.`,
       "",
       memories ? `## Current memories\n\n${memories}` : "No memories yet.",
       "",
