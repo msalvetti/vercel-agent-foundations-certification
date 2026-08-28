@@ -5,7 +5,30 @@ A Next.js e-commerce app used as the hands-on project for the Vercel Agent Found
 The repo has two layers:
 
 1. **A working storefront** — products, search, product pages, cart, promotions, and categories, backed by the live Vercel Swag Store API. There is no local product or cart database; reads happen in Server Components and mutations go through Server Actions, so the deployment-protection secret never reaches the client.
-2. **A workshop scaffold** — the agent and workflow pieces (`lib/agent.ts`, `lib/tools.ts`, `lib/workflows/*`, the `/api/chat*` and `/api/admin/chat` routes) are intentionally left as stubs that return `501`. You implement them as you work through the certification chapters.
+2. **The agents built during the certification** — a customer shopping agent and a back-office admin agent (`lib/agent.ts`, `lib/tools.ts`, `lib/workflows/*`, the `/api/chat*` and `/api/admin/chat` routes). The starter left these as stubs returning `501`; they are implemented here.
+
+## Certification submission
+
+The certification spans four chapter groups, and the last one lives in a separate repository because `eve init` scaffolds its own project.
+
+| Chapter group | Where it lives |
+| --- | --- |
+| Project Setup | this repo |
+| Build a Shopping Agent — Chat Agent, Tools, Generative UI, Workflows | this repo |
+| Build a Store Admin Agent — Admin Agent Setup, Sandbox, Persistent Memory | this repo |
+| The Agent Framework — Setup, Tools, Skills, Subagents | **[vercel-my-agent-eve](https://github.com/msalvetti/vercel-my-agent-eve)** |
+
+### What to look at in this repo
+
+| Chapter | Files |
+| --- | --- |
+| Chat Agent | `lib/agent.ts`, `app/api/chat/route.ts`, `components/agent-chat.tsx` |
+| Tools | `lib/tools.ts` — catalog, category, product-detail and return tools |
+| Generative UI | `components/agent-product-list.tsx`, `components/agent-product-card.tsx` |
+| Workflows | `lib/workflows/return-flow.ts` (one durable step per action), `lib/workflows/chat-flow.ts` (`DurableAgent`), `app/api/chat/[id]/stream/route.ts` (resumable stream) |
+| Admin Agent Setup | `lib/workflows/admin-chat-flow.ts`, the four back-office tools in `lib/tools.ts`, `components/admin-agent-chat.tsx` |
+| Sandbox | `lib/sandbox.ts`, the `bash` tool in `lib/tools.ts`, the terminal renderer in `components/admin-agent-chat.tsx` |
+| Persistent Memory | `readMemories()` and the composed memory protocol in `lib/workflows/admin-chat-flow.ts` |
 
 ## Tech stack
 
@@ -27,12 +50,13 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-The storefront only needs `BYPASS_SECRET` to run. The `STORE_BUSINESS_AGENT_*` variables are only required once you reach the admin-agent chapter.
+The storefront only needs `BYPASS_SECRET` to run. The agent routes also need `AI_GATEWAY_API_KEY`. The `STORE_BUSINESS_AGENT_*` variables belong to an alternative admin-agent setup and are unused here.
 
 ## Environment variables
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
+| `AI_GATEWAY_API_KEY` | Yes, for the agents | Vercel AI Gateway key. Every model call goes through it. Without it the agent routes fail on the first request. |
 | `BYPASS_SECRET` | Yes | Vercel deployment-protection bypass secret. Sent as the `x-vercel-protection-bypass` header on every API call. Server-only — never give it a `NEXT_PUBLIC_` prefix. |
 | `API_BASE_URL` | No | Override the backend API base URL. Defaults to `https://vercel-agentic-swag-store-api.vercel.app/api`. |
 | `STORE_BUSINESS_AGENT_URL` | Admin chat only | HTTP base URL of the deployed store-business-agent. |
@@ -63,9 +87,9 @@ app/
     products/[param]/      # /products/:idOrSlug — SSG product detail
   admin/                   # /admin dashboard + /admin/login (demo auth)
   api/
-    chat/route.ts          # customer chat — workshop stub (501)
-    chat/[id]/stream/      # durable-agent stream resume — workshop stub (501)
-    admin/chat/route.ts    # admin agent chat — workshop stub (501)
+    chat/route.ts          # customer chat — starts the chatFlow workflow
+    chat/[id]/stream/      # re-attaches to a running workflow's stream
+    admin/chat/route.ts    # admin agent chat — starts the adminChatFlow workflow
   layout.tsx               # synchronous root layout (keeps routes statically renderable)
 lib/
   api.ts                   # typed fetch wrapper for the Swag Store API (server-only)
@@ -75,8 +99,8 @@ lib/
   cart-actions.ts          # 'use server' cart mutations (revalidateTag('cart'))
   admin-auth.ts            # demo admin auth constants
   admin-actions.ts         # 'use server' admin login/logout
-  agent.ts, tools.ts       # workshop stubs — your agent + its tools
-  workflows/               # workshop stubs — chat / admin-chat / return flows
+  agent.ts, tools.ts       # ToolLoopAgent + the tools both agents share
+  workflows/               # durable chat / admin-chat / return flows
 components/
   cart-*.tsx               # cart provider, button, and sheet (client)
   agent-chat.tsx, admin-agent-chat.tsx, ai-elements/   # chat UI (workshop)
@@ -95,7 +119,7 @@ Render modes: `/` is **static** (`force-static`, `revalidate = 60`), `/products/
 
 ### Admin
 
-`/admin` is gated behind `/admin/login` with a simple demo cookie set by `lib/admin-actions.ts`. The dashboard hosts the admin agent chat UI, which posts to `/api/admin/chat`. That route — like the customer `/api/chat` routes — is a workshop stub until you complete the corresponding chapter.
+`/admin` is gated behind `/admin/login` with a simple demo cookie set by `lib/admin-actions.ts`. The dashboard hosts the admin agent chat UI, which posts to `/api/admin/chat`. That route starts the `adminChatFlow` workflow and streams its output back.
 
 ## Deployment
 
